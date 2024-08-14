@@ -9,11 +9,22 @@ class FileSizeViewer(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Visualizador de Tamanho de Arquivos e Pastas")
-        self.geometry("600x400")
+        self.geometry("600x450")
+
+        # Histórico de pastas
+        self.folder_history = []
+
+        # Frame para os botões
+        button_frame = tk.Frame(self)
+        button_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        # Botão para voltar à pasta anterior
+        self.back_button = tk.Button(button_frame, text="Voltar", command=self.go_back, state=tk.DISABLED)
+        self.back_button.pack(side=tk.LEFT)
 
         # Botão para selecionar a pasta
-        self.select_folder_button = tk.Button(self, text="Selecionar Pasta", command=self.select_folder)
-        self.select_folder_button.pack(pady=10)
+        self.select_folder_button = tk.Button(button_frame, text="Selecionar Pasta", command=self.select_folder)
+        self.select_folder_button.pack(side=tk.RIGHT)
 
         # Tabela para exibir os nomes e tamanhos dos arquivos e pastas
         self.tree = ttk.Treeview(self, columns=("Nome", "Tamanho"), show="headings")
@@ -26,11 +37,22 @@ class FileSizeViewer(tk.Tk):
         # Evento de clique duplo
         self.tree.bind("<Double-1>", self.on_double_click)
 
-    def select_folder(self):
-        # Abrir o diálogo para selecionar a pasta
-        folder_path = filedialog.askdirectory()
+    def select_folder(self, folder_path=None):
+        if folder_path is None:
+            # Abrir o diálogo para selecionar a pasta
+            folder_path = filedialog.askdirectory()
 
         if folder_path:
+            # Adicionar a pasta atual ao histórico antes de mudar para a nova pasta
+            if self.folder_history and self.folder_history[-1] != folder_path:
+                self.folder_history.append(folder_path)
+            elif not self.folder_history:
+                self.folder_history.append(folder_path)
+
+            # Ativar o botão "Voltar" se houver histórico de navegação
+            if len(self.folder_history) > 1:
+                self.back_button.config(state=tk.NORMAL)
+
             # Limpar a tabela existente
             for i in self.tree.get_children():
                 self.tree.delete(i)
@@ -73,8 +95,27 @@ class FileSizeViewer(tk.Tk):
         selected_item = self.tree.selection()[0]
         item_path = self.tree.item(selected_item, "tags")[0]
 
-        # Abrir o arquivo ou pasta
-        self.open_item(item_path)
+        # Verificar se o item é uma pasta
+        if os.path.isdir(item_path):
+            # Adicionar a pasta atual ao histórico antes de mudar para a nova pasta
+            self.folder_history.append(item_path)
+            self.select_folder(item_path)
+        else:
+            # Se for um arquivo, abrir o arquivo
+            self.open_item(item_path)
+
+    def go_back(self):
+        if len(self.folder_history) > 1:
+            # Remover a pasta atual do histórico
+            self.folder_history.pop()
+
+            # Carregar a pasta anterior
+            previous_folder = self.folder_history[-1]
+            self.select_folder(previous_folder)
+
+            # Desativar o botão "Voltar" se não houver mais histórico
+            if len(self.folder_history) == 1:
+                self.back_button.config(state=tk.DISABLED)
 
     def open_item(self, path):
         if platform.system() == "Windows":
